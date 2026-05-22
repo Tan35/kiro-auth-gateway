@@ -189,7 +189,7 @@ var TokenStore = class {
 init_models();
 
 // lib/kiro-fetch.ts
-var http = __toESM(require("node:http"), 1);
+var http = __toESM(require("node:http"));
 var DEFAULT_KIROGATE_BASE = "http://localhost:8001";
 var DEFAULT_KIROGATE_API_KEY = "changeme_proxy_secret";
 function getDefaultProxyConfig() {
