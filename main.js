@@ -151,8 +151,16 @@ var TokenStore = class {
     }
     return this.cachedApiKey;
   }
-  /** Get the credential for KiroGate Combined auth — prefers API Key over refresh token */
+  /** Get the credential for KiroGate Combined auth — prefers API Key over refresh token.
+   *
+   * Returns empty string for gateway mode (access_token === 'gateway_mode')
+   * because Kiro Gateway (jwadow) stores RefreshToken in its own .env file,
+   * so the local proxy should only send PROXY_API_KEY (no user credential).
+   */
   getCredentialForAuth() {
+    if (this.cachedTokens?.access_token === "gateway_mode") {
+      return "";
+    }
     if (this.cachedApiKey) {
       return this.cachedApiKey;
     }
@@ -332,6 +340,7 @@ async function handleChatCompletion(req, res, logger) {
   try {
     const credential = getCredentialFn();
     authToken = credential ? `${currentConfig.gateApiKey}:${credential}` : currentConfig.gateApiKey;
+    logger.info(`Kiro proxy auth mode: ${credential ? "combined" : "key-only"}, token=${authToken.substring(0, 20)}...`);
   } catch {
     authToken = currentConfig.gateApiKey;
   }
