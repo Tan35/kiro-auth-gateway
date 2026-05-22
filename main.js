@@ -444,7 +444,10 @@ async function activate(context) {
       }
     },
     async isAuthenticated() {
-      return tokenStore.hasValidToken();
+      const result = tokenStore.hasValidToken();
+      const tokens = tokenStore.getTokens();
+      logger.info(`[kiro-auth] isAuthenticated() = ${result}, tokens = ${JSON.stringify(tokens)}`);
+      return result;
     },
     async authenticate() {
       const config = getDefaultProxyConfig();
@@ -473,7 +476,7 @@ async function activate(context) {
       if (gatewayOk) {
         await tokenStore.saveTokens({
           access_token: "gateway_mode",
-          refresh_token: "",
+          refresh_token: "gateway_connected",
           expires_at: 0,
           token_type: "Bearer"
         });
@@ -481,7 +484,8 @@ async function activate(context) {
           "\u2705 Kiro Gateway \u8FDE\u63A5\u6210\u529F\uFF01\u5DF2\u81EA\u52A8\u5B8C\u6210\u8BA4\u8BC1\u3002",
           { type: "success" }
         );
-        logger.info("Kiro Gateway mode authentication successful");
+        logger.info("Kiro Gateway mode authentication successful, tokens saved");
+        logger.info(`[kiro-auth] Post-auth hasValidToken() = ${tokenStore.hasValidToken()}`);
         return { success: true };
       }
       ui.showNotification(
