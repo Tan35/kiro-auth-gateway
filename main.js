@@ -130,9 +130,12 @@ var TokenStore = class {
       this.cachedApiKey = null;
     }
   }
-  /** Check if any valid credential exists (API key or OAuth refresh token) */
+  /** Check if any valid credential exists (API key, refresh token, or gateway mode) */
   hasValidToken() {
-    return !!this.cachedApiKey || !!this.cachedTokens?.refresh_token;
+    if (this.cachedTokens?.access_token === "gateway_mode") return true;
+    if (this.cachedApiKey) return true;
+    if (this.cachedTokens?.refresh_token) return true;
+    return false;
   }
   /** Check if API Key is the active authentication method */
   hasApiKey() {
