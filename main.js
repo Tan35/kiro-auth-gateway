@@ -1,6 +1,8 @@
+var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
+var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
 var __esm = (fn, res) => function __init() {
   return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
@@ -17,6 +19,14 @@ var __copyProps = (to, from, except, desc) => {
   }
   return to;
 };
+var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
+  // If the importer is in node compatibility mode or this is not an ESM
+  // file that has been converted to a CommonJS file using a Babel-
+  // compatible transform (i.e. "__esModule" has not been set), then set
+  // "default" to the CommonJS "module.exports" for node compatibility.
+  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
+  mod
+));
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
 // lib/models.ts
@@ -82,6 +92,13 @@ var init_models = __esm({
     ];
   }
 });
+
+// main.ts
+var main_exports = {};
+__export(main_exports, {
+  activate: () => activate
+});
+module.exports = __toCommonJS(main_exports);
 
 // lib/token-store.ts
 var STORAGE_KEY = "kiro_tokens";
@@ -172,7 +189,7 @@ var TokenStore = class {
 init_models();
 
 // lib/kiro-fetch.ts
-import * as http from "node:http";
+var http = __toESM(require("node:http"), 1);
 var DEFAULT_KIROGATE_BASE = "http://localhost:8001";
 var DEFAULT_KIROGATE_API_KEY = "changeme_proxy_secret";
 function getDefaultProxyConfig() {
@@ -427,118 +444,110 @@ async function activate(context) {
       return tokenStore.hasValidToken();
     },
     async authenticate() {
+      const config = getDefaultProxyConfig();
+      ui.showNotification("\u6B63\u5728\u8FDE\u63A5 Kiro Gateway...", { type: "info" });
+      let gatewayOk = false;
       try {
-        const authMode = await ui.showQuickPick([
-          {
-            label: "$(plug)  Kiro Gateway \u6A21\u5F0F (\u63A8\u8350)",
-            description: "RefreshToken \u5DF2\u914D\u7F6E\u5728 Kiro Gateway \u7684 .env \u4E2D\uFF0C\u65E0\u9700\u624B\u52A8\u8F93\u5165",
-            detail: "\u786E\u4FDD Kiro Gateway (jwadow/kiro-gateway) \u5DF2\u5728 localhost:8001 \u8FD0\u884C\uFF0C\u4E14 .env \u4E2D\u914D\u7F6E\u4E86 REFRESH_TOKEN",
-            value: "gateway_mode"
-          },
-          {
-            label: "$(key)  RefreshToken \u6A21\u5F0F (\u65E7\u7248\u517C\u5BB9)",
-            description: "\u4ECE Kiro Cookie \u4E2D\u83B7\u53D6 RefreshToken (aorAAA... \u683C\u5F0F)\uFF0C\u7528\u4E8E\u65E7\u7248 KiroGate",
-            detail: "\u5728\u6D4F\u89C8\u5668\u8BBF\u95EE kiro.dev\uFF0CF12 -> Application -> Cookies -> \u590D\u5236 RefreshToken \u503C",
-            value: "refresh_token"
-          }
-        ], {
-          title: "\u9009\u62E9 Kiro \u8BA4\u8BC1\u65B9\u5F0F",
-          placeHolder: "\u63A8\u8350\u4F7F\u7528 Kiro Gateway \u6A21\u5F0F"
+        const resp = await fetch(`${config.gateBaseURL}/v1/models`, {
+          headers: { "Authorization": `Bearer ${config.gateApiKey}` },
+          signal: AbortSignal.timeout(8e3)
         });
-        const selectedValue = typeof authMode === "string" ? authMode : authMode?.value || authMode?.label || "";
-        if (!selectedValue) {
-          ui.showNotification("Authentication cancelled.", { type: "warning" });
-          return { success: false, error: "No auth mode selected" };
-        }
-        if (selectedValue === "gateway_mode" || selectedValue.includes("Gateway")) {
-          const config = getDefaultProxyConfig();
-          try {
-            const resp = await fetch(`${config.gateBaseURL}/v1/models`, {
-              headers: { "Authorization": `Bearer ${config.gateApiKey}` },
-              signal: AbortSignal.timeout(5e3)
-            });
-            if (!resp.ok) {
-              ui.showNotification(
-                `Kiro Gateway \u8FD4\u56DE HTTP ${resp.status}\uFF0C\u8BF7\u68C0\u67E5 .env \u4E2D\u7684 PROXY_API_KEY \u914D\u7F6E`,
-                { type: "error" }
-              );
-              return { success: false, error: `Gateway returned ${resp.status}` };
-            }
-            const data = await resp.json();
-            if (!data.data || data.data.length === 0) {
-              ui.showNotification(
-                "Kiro Gateway \u6A21\u578B\u5217\u8868\u4E3A\u7A7A\uFF0C\u8BF7\u68C0\u67E5 .env \u4E2D\u7684 REFRESH_TOKEN \u662F\u5426\u6709\u6548",
-                { type: "error" }
-              );
-              return { success: false, error: "Gateway returned empty model list" };
-            }
-          } catch (err) {
-            const msg = err instanceof Error ? err.message : String(err);
-            ui.showNotification(
-              `\u65E0\u6CD5\u8FDE\u63A5 Kiro Gateway (${config.gateBaseURL})\uFF0C\u8BF7\u786E\u4FDD\u5DF2\u542F\u52A8: python main.py --port 8001`,
-              { type: "error" }
-            );
-            return { success: false, error: `Gateway unreachable: ${msg}` };
+        if (!resp.ok) {
+          logger.warn(`Kiro Gateway returned HTTP ${resp.status}`);
+        } else {
+          const data = await resp.json();
+          if (data.data && data.data.length > 0) {
+            gatewayOk = true;
+            logger.info(`Kiro Gateway connected. Models: ${data.data.length}`);
+          } else {
+            logger.warn("Kiro Gateway returned empty model list");
           }
-          await tokenStore.saveTokens({
-            access_token: "gateway_mode",
-            refresh_token: "",
-            expires_at: 0,
-            token_type: "Bearer"
-          });
-          ui.showNotification(
-            "Kiro Gateway \u8FDE\u63A5\u6210\u529F\uFF01\u8BA4\u8BC1\u5DF2\u81EA\u52A8\u5B8C\u6210\u3002",
-            { type: "success" }
-          );
-          logger.info("Kiro Gateway mode authentication successful");
-          return { success: true };
         }
-        if (selectedValue === "refresh_token" || selectedValue.includes("RefreshToken")) {
-          ui.showNotification(
-            "\u8BF7\u4ECE Kiro Cookie \u4E2D\u7C98\u8D34 RefreshToken (\u4EE5 aorAAA \u5F00\u5934)",
-            { type: "info" }
-          );
-          const refreshToken = await ui.showInputBox({
-            title: "Kiro RefreshToken",
-            prompt: "\u7C98\u8D34 Kiro RefreshToken (\u683C\u5F0F: aorAAA...:MGYC...)\n\n\u83B7\u53D6\u65B9\u5F0F:\n1. \u6D4F\u89C8\u5668\u6253\u5F00 kiro.dev \u5E76\u767B\u5F55\n2. \u6309 F12 \u6253\u5F00\u5F00\u53D1\u8005\u5DE5\u5177\n3. Application -> Cookies -> https://kiro.dev\n4. \u627E\u5230 RefreshToken \u884C\uFF0C\u590D\u5236\u5176\u503C",
-            placeHolder: "aorAAA...:MGYC...",
-            password: true
-          });
-          if (!refreshToken || !refreshToken.trim()) {
-            ui.showNotification("No RefreshToken entered. Authentication cancelled.", { type: "warning" });
-            return { success: false, error: "No RefreshToken entered" };
-          }
-          const trimmedToken = refreshToken.trim();
-          if (!trimmedToken.startsWith("aorA")) {
-            ui.showNotification(
-              'RefreshToken \u683C\u5F0F\u5F02\u5E38 \u2014 \u901A\u5E38\u5E94\u4EE5 "aorA" \u5F00\u5934\u3002\u5982\u679C\u786E\u5B9A\u6B63\u786E\u53EF\u4EE5\u7EE7\u7EED\u3002',
-              { type: "warning" }
-            );
-          }
-          await tokenStore.saveTokens({
-            access_token: "",
-            refresh_token: trimmedToken,
-            expires_at: 0,
-            token_type: "Bearer"
-          });
-          ui.showNotification(
-            "Kiro RefreshToken \u5DF2\u4FDD\u5B58\uFF01\u5DF2\u8FDE\u63A5 (Legacy KiroGate \u6A21\u5F0F)\u3002",
-            { type: "success" }
-          );
-          logger.info("Kiro authentication successful (RefreshToken/Legacy mode)");
-          return { success: true };
-        }
-        ui.showNotification(`Unknown auth mode: ${selectedValue}`, { type: "error" });
-        return { success: false, error: `Unknown auth mode: ${selectedValue}` };
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "Authentication failed";
-        logger.error("Kiro authentication error:", error);
-        ui.showError(`Auth failed: ${message}`);
-        if (message.includes("Gateway") || message.includes("validate")) {
-          logger.info("Gateway connection failed, please check Kiro Gateway is running");
-        }
-        return { success: false, error: message };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        logger.warn(`Kiro Gateway unreachable: ${msg}`);
       }
+      if (gatewayOk) {
+        await tokenStore.saveTokens({
+          access_token: "gateway_mode",
+          refresh_token: "",
+          expires_at: 0,
+          token_type: "Bearer"
+        });
+        ui.showNotification(
+          "\u2705 Kiro Gateway \u8FDE\u63A5\u6210\u529F\uFF01\u5DF2\u81EA\u52A8\u5B8C\u6210\u8BA4\u8BC1\u3002",
+          { type: "success" }
+        );
+        logger.info("Kiro Gateway mode authentication successful");
+        return { success: true };
+      }
+      ui.showNotification(
+        "\u274C \u65E0\u6CD5\u8FDE\u63A5 Kiro Gateway\uFF0C\u8BF7\u786E\u8BA4\u670D\u52A1\u5DF2\u542F\u52A8 (localhost:8001)",
+        { type: "error" }
+      );
+      const fallback = await ui.showQuickPick([
+        {
+          label: "$(refresh) \u91CD\u8BD5\u8FDE\u63A5",
+          description: "\u518D\u6B21\u5C1D\u8BD5\u8FDE\u63A5 Kiro Gateway",
+          value: "retry"
+        },
+        {
+          label: "$(key) RefreshToken \u624B\u52A8\u6A21\u5F0F",
+          description: "\u624B\u52A8\u8F93\u5165 RefreshToken \u76F4\u8FDE\u65E7\u7248 KiroGate",
+          value: "refresh_token"
+        },
+        {
+          label: "$(x) \u53D6\u6D88",
+          description: "\u53D6\u6D88\u8BA4\u8BC1",
+          value: "cancel"
+        }
+      ], {
+        title: "\u26A0\uFE0F Kiro Gateway \u4E0D\u53EF\u8FBE",
+        placeHolder: "\u9009\u62E9\u64CD\u4F5C..."
+      });
+      const fbValue = typeof fallback === "string" ? fallback : fallback?.value || fallback?.label || "";
+      if (fbValue === "retry") {
+        return this.authenticate();
+      }
+      if (fbValue === "cancel") {
+        return { success: false, error: "User cancelled" };
+      }
+      if (fbValue === "refresh_token") {
+        ui.showNotification(
+          "\u8BF7\u4ECE Kiro Cookie \u4E2D\u7C98\u8D34 RefreshToken (\u4EE5 aorAAA \u5F00\u5934)",
+          { type: "info" }
+        );
+        const refreshToken = await ui.showInputBox({
+          title: "Kiro RefreshToken",
+          prompt: "\u7C98\u8D34 Kiro RefreshToken (\u683C\u5F0F: aorAAA...:MGYC...)\n\n\u83B7\u53D6\u65B9\u5F0F:\n1. \u6D4F\u89C8\u5668\u6253\u5F00 kiro.dev \u5E76\u767B\u5F55\n2. \u6309 F12 \u6253\u5F00\u5F00\u53D1\u8005\u5DE5\u5177\n3. Application -> Cookies -> https://kiro.dev\n4. \u627E\u5230 RefreshToken \u884C\uFF0C\u590D\u5236\u5176\u503C",
+          placeHolder: "aorAAA...:MGYC...",
+          password: true
+        });
+        if (!refreshToken || !refreshToken.trim()) {
+          ui.showNotification("\u672A\u8F93\u5165 RefreshToken\uFF0C\u8BA4\u8BC1\u53D6\u6D88", { type: "warning" });
+          return { success: false, error: "No RefreshToken entered" };
+        }
+        const trimmedToken = refreshToken.trim();
+        if (!trimmedToken.startsWith("aorA")) {
+          ui.showNotification(
+            'RefreshToken \u683C\u5F0F\u5F02\u5E38 \u2014 \u901A\u5E38\u5E94\u4EE5 "aorA" \u5F00\u5934\u3002\u5982\u679C\u786E\u5B9A\u6B63\u786E\u53EF\u4EE5\u7EE7\u7EED\u3002',
+            { type: "warning" }
+          );
+        }
+        await tokenStore.saveTokens({
+          access_token: "",
+          refresh_token: trimmedToken,
+          expires_at: 0,
+          token_type: "Bearer"
+        });
+        ui.showNotification(
+          "\u2705 Kiro RefreshToken \u5DF2\u4FDD\u5B58\uFF01(Legacy KiroGate \u6A21\u5F0F)",
+          { type: "success" }
+        );
+        logger.info("Kiro authentication successful (RefreshToken/Legacy mode)");
+        return { success: true };
+      }
+      return { success: false, error: "Unknown selection" };
     },
     async logout() {
       await tokenStore.clearTokens();
@@ -662,6 +671,7 @@ async function fetchDynamicModels(logger) {
     return getKiroModels();
   }
 }
-export {
+// Annotate the CommonJS export names for ESM import in node:
+0 && (module.exports = {
   activate
-};
+});
