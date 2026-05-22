@@ -1,6 +1,6 @@
 # Kiro Auth - Alma IDE Provider Plugin
 
-Use [Kiro](https://kiro.dev) Claude models (AWS Bedrock) in [Alma IDE](https://github.com/nicepkg/alma) via [Kiro Gateway](https://github.com/jwadow/kiro-gateway).
+Use [Kiro](https://kiro.dev) Claude models (AWS Bedrock) in [Alma](https://alma.now/) via [Kiro Gateway](https://github.com/jwadow/kiro-gateway).
 
 ## Features
 
