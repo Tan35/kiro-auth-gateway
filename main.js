@@ -425,7 +425,7 @@ async function activate(context) {
     id: "kiro",
     name: "Kiro",
     description: "Access Claude models (Opus 4.5, Sonnet 4.5, Haiku 4.5, etc.) via your Kiro account through KiroGate proxy",
-    authType: "oauth",
+    authType: "api-key",
     sdkType: "openai-compatible",
     async initialize() {
       logger.info("Kiro provider initialized");
